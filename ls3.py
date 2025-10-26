@@ -310,6 +310,74 @@ class LazyFramework:
         except Exception as e:
             console.print(f"Load error: {e}", style="bold red")
 
+
+    def cmd_info(self, args):
+        if not self.loaded_module:
+            console.print("Tidak ada modul yang dimuat.", style="red")
+            return
+        mod = self.loaded_module.module
+        meta = getattr(mod, "MODULE_INFO", {}) or {}
+        name = meta.get("name", self.loaded_module.name)
+        mod_type = self._get_module_type_from_path(mod.__file__)
+        authors = meta.get("author", meta.get("authors", "(unknown)"))
+        description = meta.get("description", "(No description provided)")
+
+        # Header (mirip metasploit)
+        header = Table.grid(expand=True)
+        header.add_column(ratio=1)
+        header.add_column(justify="right", ratio=1)
+        header.add_row(f"[bold cyan]{name}[/bold cyan]",
+                       f"[bold yellow]{mod_type}[/bold yellow] / {platform}")
+        header.add_row(f"[bold]Author:[/bold] {authors}", f"[bold]License:[/bold] {license_}")
+
+        console.print(Panel(header, title="Module Info", border_style="green", expand=True))
+
+        # Deskripsi panjang
+        console.print(Panel(description, title="Description", border_style="white", expand=True))
+        if references:
+            rtab = Table(show_header=False, box=None, expand=True)
+            rtab.add_column("Ref", style="cyan", width=6)
+            rtab.add_column("Value", overflow="fold")
+            for i, r in enumerate(references, 1):
+                rtab.add_row(f"[{i}]", str(r))
+            console.print(Panel(rtab, title="References", border_style="white", expand=True))
+        if hasattr(mod, "OPTIONS") and isinstance(getattr(mod, "OPTIONS"), dict):
+            opts = self.loaded_module.get_options()
+            ot = Table(show_header=True, header_style="bold magenta")
+            ot.add_column("Name", no_wrap=True, style="bold")
+            ot.add_column("Current", justify="center")
+            ot.add_column("Required", justify="center")
+            ot.add_column("Description", overflow="fold")
+            for name, info in opts.items():
+                cur = info.get("value", info.get("default", ""))
+                req = "yes" if info.get("required") else "no"
+                desc = info.get("description", "")
+                ot.add_row(name, str(cur), req, desc)
+            console.print(Panel(ot, title="Options", border_style="white", expand=True))
+        else:
+            console.print("Module ini tidak memiliki OPTIONS.", style="yellow")
+    
+    def _get_module_type_from_path(self, module_file_path):
+    """
+    Tentukan tipe modul berdasarkan struktur folder dan nama file.
+    Misalnya, jika berada di dalam folder 'scanner', tipe modul adalah 'scanner'.
+    """
+    # Ambil nama folder dari jalur file
+        folder_name = os.path.basename(os.path.dirname(module_file_path))
+
+    # Tentukan tipe berdasarkan folder
+        if folder_name in ['scanner', 'auxiliary']:
+            return folder_name
+        elif folder_name in ['exploit']:
+            return 'exploit'
+        elif folder_name in ['post']:
+            return 'post'
+        else:
+            return 'unknown'
+
+
+
+
     def cmd_options(self, args):
         if not self.loaded_module:
             console.print("No module loaded.", style="red")
