@@ -154,22 +154,22 @@ class NetworkScanner:
             "min_score": 2
         },
         "Indihome (Telkom)": {
-            "keywords": [r"indihome", r"telkom", r"zte", r"fiberhome"],
+            "keywords": [r"indihome", r"telkom", r"zte", r"fiberhome", r"hg6543c", r"rp2872"], 
             "http_keywords": [r"indihome", r"modem configuration", r"fibrehome", r"zte gpon ont", r"telkom indonesia", r"adminpldt"],
             "ports": [80, 443, 8080, 7547],
-            "paths": ["/", "/login.asp", "/gpon", "/start.ghtml"],
+            "paths": ["/", "/login.asp", "/gpon", "/start.ghtml", "/menu.htr"],
             "server_patterns": [r"ZTE", r"FiberHome"],
             "favicon_hashes": [],
             "min_score": 2
         },
         "MyRepublic": {
-            "keywords": [r"myrepublic", r"sagemcom", r"technicolor", r"tg389ac", r"2744r", r"fast", r"hg8245", r"eg8141a5", r"tg\d+", r"fast\d+", r"hg\d+", r"eg\d+", r"rp\d+"],
-            "http_keywords": [r"myrepublic", r"router setup", r"sagemcom fast", r"technicolor gateway", r"tg389ac", r"myrepublic home", r"sagemcom", r"telecomadmin", r"myrepublic broadband", r"welcome", r"wi-fi hub"],
+            "keywords": [r"myrepublic", r"sagemcom", r"technicolor", r"tg\d+", r"fast\d+", r"hg\d+", r"eg\d+", r"rp\d+", r"tg389ac", r"2744r"],
+            "http_keywords": [r"myrepublic", r"router setup", r"sagemcom fast", r"technicolor gateway", r"tg389ac", r"myrepublic home", r"telecomadmin", r"wi-fi hub"],
             "ports": [80, 443, 8080],
-            "paths": ["/", "/login", "/gateway", "/html/index.html", "/menu.html", "/login.html", "/status", "/info", "/system_status", "/device_info", "/firmware", "/admin/status"],
-            "server_patterns": [r"Sagemcom", r"Technicolor", r"Huawei"],
+            "paths": ["/", "/login", "/gateway", "/html/index.html", "/menu.html", "/login.html", "/status", "/info", "/system_status", "/device_info", "/firmware", "/admin/status", "/status.html", "/overview.html"],
+            "server_patterns": [r"Sagemcom", r"Technicolor", r"Huawei", r"ZTE"],
             "favicon_hashes": [],
-            "min_score": 2
+            "min_score": 4 
         },
         "First Media": {
             "keywords": [r"first media", r"docsis", r"arris", r"hitron"],
@@ -214,6 +214,10 @@ class NetworkScanner:
         8443: "https-alt", 2000: "cisco-sccp"
     }
     FIRMWARE_PATTERNS = [
+        r"Software\s+Version[:\s]*v?([\d\w\.\-]+)",    
+        r"Hardware\s+Version[:\s]*([\d\w\.\-]+)",      
+        r"Device\s+Model[:\s]*([\d\w\.\-]+)",          
+        r"LOID[:\s]*([\d\w\.\-]+)",                     
         r"firmware[:\s]*v?([\d\w\.\-]+)",
         r"fw[_\- ]?ver[:\s]*v?([\d\w\.\-]+)",
         r"version[:\s]*v?([\d\w\.\-]+)",
@@ -228,20 +232,13 @@ class NetworkScanner:
         r"TP-LINK\s+Firmware\s+Ver[:\s]*v?([\d\w\.\-]+)",
         r"Device\s+Version[:\s]*v?([\d\w\.\-]+)",
         r"Firmware:\s*<b>([^<]+)</b>",
-        r"(?:V\d+\.R\d+C\d+S?\d*)",
-        r"(?:Technicolor|Sagemcom|FibreHome|ZXHN|HG|EG)[\w\.\-]+",  # Contoh: TechnicolorTG389ac, ZXHNH298N, HG8245
-        r"v[\d]+\.[\d]+\.[\d]+(?:\.[\d]+)?",  # vX.Y.Z
-        r"[\d]+\.[\d]+\.[\d]+(?:\.[\d]+)?",   # X.Y.Z
-        r"Build[\w\d]+",                       # Build1234
-        r"MyRep[\d\.\w]+",                    # MyRep2023.1
-        r"Versi Perangkat Lunak[:\s]*([\d\w\.\-]+)",  # Lokal
-        r"(?:firmware|version|software)\s+[\w\s]*:\s*v?([\d\w\.\-]+)",
-        r"(?:RP|TG|FAST|WKE)\d[\d\.\w\-]+",              # Contoh: RP2872, TG799vac, FAST3896, WKE2.094...
-        # Pola Pencarian Versi dan Model yang Fleksibel (dari body halaman status)
-        r"Software\s+Version[:\s]*v?([\d\w\.\-]+)",    # Menangkap "Software Version: RP2872"
-        r"Hardware\s+Version[:\s]*([\d\w\.\-]+)",      # Menangkap "Hardware Version: WKE2.094.274A11"
-        r"Device\s+Model[:\s]*([\d\w\.\-]+)",          # Menangkap "Device Model: HG6543C"
-        r"LOID[:\s]*([\d\w\.\-]+)",                     # Menangkap "LOID: fiberhome"
+        r"v[\d]+\.[\d]+\.[\d]+(?:\.[\d]+)?",           
+        r"[\d]+\.[\d]+\.[\d]+(?:\.[\d]+)?",           
+        r"Build[\w\d]+",                               
+        r"MyRep[\d\.\w\-]+",                            
+        r"(?:V\d+\.R\d+C\d+S?\d*)",                      
+        r"(?:RP|TG|FAST|WKE)\d[\d\.\w\-]+",              
+        r"Versi Perangkat Lunak[:\s]*([\d\w\.\-]+)",  
     ]
 
     def __init__(self, console, target, ports="router", timeout=4, max_threads=10, ping_check=False):
@@ -359,10 +356,13 @@ class NetworkScanner:
             }
             headers = {'User-Agent': 'Mozilla/5.0 (compatible; RouterScanner/1.0)'}
             
-            paths = ["/", "/login", "/index.html", "/login.asp", "/login.html", "/status", "/info", "/system_status", "/device_info", "/firmware", "/admin/status"]
+            paths = ["/", "/login", "/index.html", "/login.asp", "/login.html", 
+                     "/status", "/info", "/system_status", "/device_info", 
+                     "/firmware", "/admin/status", "/menu.html", "/menu.htr",
+                     "/status.html", "/overview.html", "/start.ghtml"]
             for brand, data in self.ROUTER_BRANDS.items():
                 paths.extend(data.get("paths", []))
-            paths = list(dict.fromkeys(paths))
+            paths = list(dict.fromkeys(paths)) 
             
             combined_body = ""
             for path in paths:
@@ -380,7 +380,7 @@ class NetworkScanner:
                             match = re.search(r'<title\b[^>]*>(.*?)</title>', response.text[:8000], re.IGNORECASE | re.DOTALL)
                             if match:
                                 http_data['title'] = match.group(1).strip()
-                        body_sample = re.sub(r'\s+', ' ', response.text[:4000]).strip()
+                        body_sample = re.sub(r'\s+', ' ', response.text[:8000]).strip()
                         http_data['body_samples'].append(body_sample)
                         combined_body += " " + body_sample.lower()
                     if not http_data['favicon_hash']:
@@ -395,26 +395,31 @@ class NetworkScanner:
 
             search_text = " ".join([http_data.get('banner',''), http_data.get('title',''), combined_body]).strip()
             firmware = ""
+
             if http_data.get('banner'):
                 for pat in self.FIRMWARE_PATTERNS:
                     m = re.search(pat, http_data['banner'], re.IGNORECASE)
                     if m:
                         firmware = m.group(1) if m.groups() else m.group(0)
                         break
+            
             if not firmware and http_data.get('auth_header'):
                 for pat in self.FIRMWARE_PATTERNS:
                     m = re.search(pat, http_data['auth_header'], re.IGNORECASE)
                     if m:
                         firmware = m.group(1) if m.groups() else m.group(0)
                         break
+
             if not firmware and search_text:
                 for pat in self.FIRMWARE_PATTERNS:
-                    m = re.search(pat, search_text, re.IGNORECASE | re.DOTALL)
+                    m = re.search(pat, search_text, re.IGNORECASE | re.DOTALL) 
                     if m:
                         firmware = m.group(1) if m.groups() else m.group(0)
                         break
+            
             if not firmware and re.search(r"rom-0|ROM-0", search_text, re.IGNORECASE):
                 firmware = "rom-0 (present)"
+                
             http_data['firmware'] = firmware or ""
             return http_data
 
@@ -442,24 +447,14 @@ class NetworkScanner:
 
         if 8291 in port_numbers:
             return "Mikrotik"
-        if 7547 in port_numbers:
-            isp_candidates = ["myrepublic", "indihome", "telkom", "sagemcom", "technicolor", "first media", "zte"]
-            for k in isp_candidates:
-                if k in combined_text:
-                    if "myrepublic" in combined_text:
-                        return "MyRepublic"
-                    if "zte" in combined_text:
-                        return "ZTE"
-                    if "indihome" in combined_text or "telkom" in combined_text:
-                        return "Indihome (Telkom)"
-                    if "first media" in combined_text:
-                        return "First Media"
-            return "ISP Router (TR-069)"
-
-        isp_brands = ["MyRepublic", "Indihome (Telkom)", "First Media", "ZTE"]
+        
+        # Deteksi ISP Indonesia (Prioritas Tinggi)
+        isp_brands = ["MyRepublic", "Indihome (Telkom)", "First Media", "ZTE", "Huawei"]
         for brand in isp_brands:
             data = self.ROUTER_BRANDS.get(brand, {})
             score = 0
+            
+            # 1. Penskoran Keyword Umum dan HTTP
             for kw in data.get("keywords", []) + data.get("http_keywords", []):
                 if re.search(kw, combined_text, re.IGNORECASE):
                     score += 2 if kw in data.get("http_keywords", []) else 1
@@ -470,12 +465,31 @@ class NetworkScanner:
             for fh in data.get("favicon_hashes", []):
                 if fh in all_fav_hashes:
                     score += 2
-            if score >= data.get("min_score", 2):
-                return brand
+            
+            # 2. Penskoran Khusus TR-069 (Port 7547) - LOGIKA YANG DIMINTA
+            if 7547 in port_numbers:
+                if brand in ["ZTE", "Huawei"] and ("zte" in combined_text or "huawei" in combined_text):
+                    score += 3
+                elif brand in ["Indihome (Telkom)"] and ("fiberhome" in combined_text or "indihome" in combined_text):
+                    score += 3
+                elif brand == "MyRepublic" in combined_text:
+                    score += 3
+                elif brand == "MyRepublic" and ("sagemcom" in combined_text or "technicolor" in combined_text or "myrepublic" in combined_text):
+                    score += 3  # Menambahkan skor 3 jika 7547 terbuka dan ada keyword MyRepublic/OEM
+                elif brand == "First Media" and ("arris" in combined_text or "hitron" in combined_text):
+                    score += 3 # Menambahkan skor 3 jika 7547 terbuka dan ada keyword First Media/OEM
+                # Semua merek yang memiliki port 7547 di listnya sudah mendapatkan +1 (dari score += len(set(data.get("ports", [])) & port_numbers))
 
+            if score >= data.get("min_score", 2) and brand != "ISP Router (TR-069)":
+                return brand
+        
+        if 7547 in port_numbers:
+            return "ISP Router (TR-069)"
+
+        # Deteksi Merek Lain (Prioritas Rendah)
         brand_scores = {}
         for brand, data in self.ROUTER_BRANDS.items():
-            if brand in isp_brands:
+            if brand in isp_brands or brand == "ISP Router (TR-069)":
                 continue
             score = 0
             for kw in data.get("keywords", []) + data.get("http_keywords", []):
@@ -500,16 +514,17 @@ class NetworkScanner:
 
         return ""
 
-    def _get_hostname(self, ip, router_brand=None):
-        if router_brand:
-            return f"{router_brand} Router"
-        else:
-            return f"Host {ip}"
+    def _get_hostname(self, ip):
+        try:
+            hostname = socket.gethostbyaddr(ip)[0]
+            return hostname
+        except:
+            return ""
 
     def _is_router_like(self, open_ports):
         port_numbers = {p['port'] for p in open_ports}
-        router_ports = {23, 80, 443, 7547, 8080, 8291}
-        return 7547 in port_numbers or len(router_ports.intersection(port_numbers)) >= 1
+        router_ports = {23, 80, 443, 7547, 8080, 8291, 8443}
+        return 7547 in port_numbers or 8291 in port_numbers or len(router_ports.intersection(port_numbers)) >= 1
 
     def scan_host(self, ip):
         if self.ping_check and not self.ping_host(ip):
@@ -624,16 +639,16 @@ class NetworkScanner:
 
         hosts_table = Table(border_style="cyan", show_header=True, header_style="bold white", box=box.HEAVY, show_lines=False)
         hosts_table.add_column("#", style="cyan", width=4, justify="center")
-        hosts_table.add_column("IP Address", style="bold white", width=30, overflow="fold")
-        hosts_table.add_column("Hostname", style="white", width=30, overflow="fold")
-        hosts_table.add_column("Status", style="white", width=30, justify="center", overflow="fold")
-        hosts_table.add_column("Brand", style="yellow", width=30, overflow="fold")
-        hosts_table.add_column("Open Ports", style="green", width=30, overflow="fold")
+        hosts_table.add_column("IP Address", style="bold white", width=15, overflow="fold")
+        hosts_table.add_column("Hostname", style="white", width=15, overflow="fold")
+        hosts_table.add_column("Status", style="white", width=15, justify="center", overflow="fold")
+        hosts_table.add_column("Brand", style="yellow", width=20, overflow="fold")
+        hosts_table.add_column("Open Ports", style="green", width=35, overflow="fold")
 
         def _short_fw(fw):
             if not fw:
                 return ""
-            return f" ({fw[:24]}{'...' if len(fw)>24 else ''})"
+            return f" ({fw[:15]}{'...' if len(fw)>15 else ''})"
 
         for i, host in enumerate(self.discovered_hosts, 1):
             router_brand = host.get('router_brand', '')
@@ -719,7 +734,7 @@ def run(session, options):
 
 if __name__ == "__main__":
     test_options = {
-        "target": "192.168.1.1",
+        "target": "192.168.1.1", 
         "ports": "router",
         "timeout": "4",
         "threads": "10",
