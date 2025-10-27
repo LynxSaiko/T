@@ -61,6 +61,15 @@ class NetworkScanner:
         "Cisco": {"keywords": ["cisco"], "banners": ["Cisco", "IOS"], "ports": [23, 80, 443]},
         "Netgear": {"keywords": ["netgear"], "banners": ["Netgear", "R7000"], "ports": [23, 80, 443]},
         "Ubiquiti": {"keywords": ["ubiquiti"], "banners": ["Ubiquiti", "UniFi"], "ports": [22, 80, 443]},
+        # Merek tambahan dari Indonesia
+        "Indihome": {"keywords": ["indihome"], "banners": ["IndiHome", "Modem"], "ports": [80, 443, 8080]},
+        "Bolt": {"keywords": ["bolt"], "banners": ["Bolt", "Modem"], "ports": [80, 443, 8080]},
+        "Biznet": {"keywords": ["biznet"], "banners": ["Biznet", "Router"], "ports": [80, 443, 8080]},
+        "First Media": {"keywords": ["first media"], "banners": ["First Media", "Modem"], "ports": [80, 443, 8080]},
+        "MyRepublic": {"keywords": ["my republic"], "banners": ["MyRepublic", "Router"], "ports": [80, 443, 8080]},
+        "Citraweb": {"keywords": ["citraweb"], "banners": ["CitraWeb", "Router"], "ports": [80, 443, 8080]},
+        "XL Home": {"keywords": ["xl home"], "banners": ["XL Home", "Modem"], "ports": [80, 443, 8080]},
+        "Smartfren": {"keywords": ["smartfren"], "banners": ["Smartfren", "Router"], "ports": [80, 443, 8080]}
     }
     
     SERVICE_DB = {
@@ -276,43 +285,39 @@ class NetworkScanner:
     def run_scan(self):
         import threading
         from concurrent.futures import ThreadPoolExecutor, as_completed
-        from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+        from tqdm import tqdm  # we use tqdm only for the spinner / progress
         import time
         
         try:
             ip_list = self.generate_ip_list()
         except Exception as e:
+            # Keep existing rich console style for errors
             self.console.print(f"[bold red]✗ Error: {e}[/bold red]")
             return
         
         start_time = time.time()
+        lock = threading.Lock()
         
-        # Progress dengan Rich
-        with Progress(
-            SpinnerColumn("dots", style="cyan"),
-            TextColumn("[bold blue]Scanning network..."),
-            BarColumn(bar_width=20),
-            TaskProgressColumn(),
-            console=self.console,
-            transient=True
-        ) as progress:
-            task = progress.add_task("", total=len(ip_list))
-            
-            lock = threading.Lock()
-            
-            def scan_with_progress(ip):
-                host_data = self.scan_host(ip)
-                with lock:
-                    if host_data:
-                        self.discovered_hosts.append(host_data)
-                        self.scan_stats['active_hosts'] += 1
-                        self.scan_stats['open_ports'] += len(host_data['open_ports'])
-                    progress.advance(task)
-            
+        # Use tqdm to show progress per-host (spinner replacement). UI/tables unchanged.
+        with tqdm(total=len(ip_list), desc="[Scanning network]", unit="host", dynamic_ncols=True, bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]") as pbar:
             with ThreadPoolExecutor(max_workers=self.max_threads) as executor:
-                futures = [executor.submit(scan_with_progress, ip) for ip in ip_list]
-                for future in futures:
-                    future.result()
+                future_to_ip = {executor.submit(self.scan_host, ip): ip for ip in ip_list}
+                
+                for future in as_completed(future_to_ip):
+                    host_data = None
+                    try:
+                        host_data = future.result()
+                    except Exception:
+                        # ignore per-host exceptions, continue scanning
+                        host_data = None
+                    with lock:
+                        if host_data:
+                            self.discovered_hosts.append(host_data)
+                            self.scan_stats['active_hosts'] += 1
+                            self.scan_stats['open_ports'] += len(host_data['open_ports'])
+                        # update tqdm postfix & advance
+                        pbar.set_postfix({"hosts_found": self.scan_stats['active_hosts']})
+                        pbar.update(1)
         
         self.scan_stats['scan_duration'] = time.time() - start_time
     
@@ -333,17 +338,19 @@ class NetworkScanner:
         self.discovered_hosts.sort(key=lambda x: (x['is_router'], len(x['open_ports'])), reverse=True)
         
         # HEADER PANEL
-        self.console.print(Panel.fit(
+        self.console.print(Panel(
             "[bold cyan]🌐 NETWORK DISCOVERY RESULTS[/bold cyan]",
             border_style="cyan",
-            box=box.DOUBLE
+            box=box.DOUBLE,
+            #width=160
         ))
         
         # HOSTS TABLE DENGAN RICH
         hosts_table = Table(
+            border_style="cyan",
             show_header=True,
-            header_style="bold magenta",
-            box=box.SIMPLE,
+            header_style="bold white",
+            box=box.HEAVY,
             show_lines=False
         )
         
@@ -389,12 +396,12 @@ class NetworkScanner:
             show_header=True,
             header_style="bold green",
             box=box.SIMPLE,
-            show_lines=False,
-            width=50
+            show_lines=False
+            #width=50
         )
         
         summary_table.add_column("Metric", style="bold white", width=20)
-        summary_table.add_column("Value", style="white", width=30)
+        summary_table.add_column("Output", style="white", width=30)
         
         summary_table.add_row("Hosts Discovered", 
                             f"[cyan]{self.scan_stats['active_hosts']}[/cyan]/[dim]{self.scan_stats['total_hosts']}[/dim]")
@@ -408,9 +415,9 @@ class NetworkScanner:
         
         self.console.print(Panel(
             summary_table,
-            title="[bold green]📊 SCAN SUMMARY[/bold green]",
+            title="[bold green][*] SCAN COMPLETE [*][/bold green]",
             border_style="green",
-            box=box.ROUNDED
+            box=box.DOUBLE
         ))
 
 def run(session, options):
@@ -428,11 +435,12 @@ def run(session, options):
     ping_check = options.get("ping_check", "true").lower() == "true"
     
     # HEADER PANEL
-    console.print(Panel.fit(
+    console.print(Panel(
         "[bold cyan]⚡ ROUTER NETWORK SCANNER[/bold cyan]\n"
         "[white]Advanced Network Discovery Tool[/white]",
         border_style="cyan",
-        box=box.DOUBLE
+        box=box.DOUBLE,
+        #width=160
     ))
     
     # CONFIG TABLE
@@ -445,7 +453,7 @@ def run(session, options):
     )
     
     config_table.add_column("Setting", style="bold white", width=15)
-    config_table.add_column("Value", style="white", width=35)
+    config_table.add_column("Output", style="white", width=35)
     
     config_table.add_row("Target", f"[cyan]{target}[/cyan]")
     config_table.add_row("Ports", f"[yellow]{ports_config}[/yellow]")
@@ -454,7 +462,7 @@ def run(session, options):
     
     console.print(Panel(
         config_table,
-        title="[bold blue]🔧 SCAN CONFIGURATION[/bold blue]",
+        title="[bold blue][*] SCAN CONFIGURATION[/bold blue]",
         border_style="blue",
         box=box.ROUNDED
     ))
