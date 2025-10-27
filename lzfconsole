@@ -360,7 +360,7 @@ class LazyFramework:
         if not args:
             console.print("Usage: use <module>", style="bold red")
             return
-
+        
         user_key = args[0].strip()
         if user_key.lower().endswith('.py'):
             user_key = user_key[:-3]
@@ -397,12 +397,17 @@ class LazyFramework:
                         if k.startswith(category):
                             console.print("  ", k)
                 return
-
+        path = self.modules[key]
         try:
-            path = self.modules[key]
+            module_dir = path.parent
+            pycache_path = module_dir / "__pycache__"
+            #path = self.modules[key]
+            self._delete_pycache_folder(pycache_path, "Pre-cleanup")
             spec = importlib.util.spec_from_file_location(key.replace('/', '_'), path)
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
+            time.sleep(0.01) 
+            self._delete_pycache_folder(pycache_path, "Post-cleanup")
 
             # Check dependencies before loading
             meta = getattr(mod, "MODULE_INFO", {})
@@ -422,10 +427,28 @@ class LazyFramework:
                     inst.options[k] = meta["default"]
 
             self.loaded_module = inst
+            #self.loaded_module = None
             console.print(Panel(f"Loaded module [bold]{key}[/bold]", style="green"))
 
         except Exception as e:
             console.print(f"Load error: {e}", style="bold red")
+
+    # Di dalam class LazyFramework
+    def _delete_pycache_folder(self, pycache_path: Path, action_name: str):
+        if pycache_path.is_dir():
+           try:
+               for item in pycache_path.iterdir():
+                   if item.is_file():
+                      os.unlink(item)
+               os.rmdir(pycache_path)
+               console.print(f"[dim]{action_name}: Removed __pycache__ at[/dim] {pycache_path.relative_to(BASE_DIR)}", style="dim green")
+               return True
+           except OSError as e:
+            # Risiko terbesar di Post-cleanup adalah file masih digunakan oleh Python
+               console.print(f"[dim red]Warning[/dim red]: {action_name} failed for {pycache_path}: {e}", style="dim")
+               return False
+        return False
+
 
     def cmd_info(self, args):
         """Display module information in Metasploit style"""
@@ -686,6 +709,7 @@ def main():
     load_banners_from_folder()
     LazyFramework().repl()
     console.print("Goodbye.")
+
 
 if __name__ == "__main__":
     main()
