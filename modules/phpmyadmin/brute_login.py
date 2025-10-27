@@ -43,7 +43,7 @@ except ImportError:
     RICH_AVAILABLE = False
 
 MODULE_INFO = {
-    "name": "bruteforce/phpmyadmin_ultrafast",
+    "name": "PhpMyAdmin Bruteforce Ultra",
     "description": "Ultra fast phpMyAdmin bruteforce dengan progress bar yang tepat"
 }
 

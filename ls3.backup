@@ -327,13 +327,15 @@ class LazyFramework:
         header.add_column(ratio=1)
         header.add_column(justify="right", ratio=1)
         header.add_row(f"[bold cyan]{name}[/bold cyan]",
-                       f"[bold yellow]{mod_type}[/bold yellow] / {platform}")
-        header.add_row(f"[bold]Author:[/bold] {authors}", f"[bold]License:[/bold] {license_}")
+                       f"[bold yellow]{mod_type}[/bold yellow]")
+        header.add_row(f"[bold]Author:[/bold] {authors}", f"[bold]License:[/bold] {meta.get('license', 'Unknown')}")
 
         console.print(Panel(header, title="Module Info", border_style="green", expand=True))
 
         # Deskripsi panjang
         console.print(Panel(description, title="Description", border_style="white", expand=True))
+        
+        references = meta.get("references", [])
         if references:
             rtab = Table(show_header=False, box=None, expand=True)
             rtab.add_column("Ref", style="cyan", width=6)
@@ -341,6 +343,7 @@ class LazyFramework:
             for i, r in enumerate(references, 1):
                 rtab.add_row(f"[{i}]", str(r))
             console.print(Panel(rtab, title="References", border_style="white", expand=True))
+            
         if hasattr(mod, "OPTIONS") and isinstance(getattr(mod, "OPTIONS"), dict):
             opts = self.loaded_module.get_options()
             ot = Table(show_header=True, header_style="bold magenta")
@@ -358,14 +361,14 @@ class LazyFramework:
             console.print("Module ini tidak memiliki OPTIONS.", style="yellow")
     
     def _get_module_type_from_path(self, module_file_path):
-    """
-    Tentukan tipe modul berdasarkan struktur folder dan nama file.
-    Misalnya, jika berada di dalam folder 'scanner', tipe modul adalah 'scanner'.
-    """
-    # Ambil nama folder dari jalur file
+        """
+        Tentukan tipe modul berdasarkan struktur folder dan nama file.
+        Misalnya, jika berada di dalam folder 'scanner', tipe modul adalah 'scanner'.
+        """
+        # Ambil nama folder dari jalur file
         folder_name = os.path.basename(os.path.dirname(module_file_path))
 
-    # Tentukan tipe berdasarkan folder
+        # Tentukan tipe berdasarkan folder
         if folder_name in ['scanner', 'auxiliary']:
             return folder_name
         elif folder_name in ['exploit']:
@@ -374,9 +377,6 @@ class LazyFramework:
             return 'post'
         else:
             return 'unknown'
-
-
-
 
     def cmd_options(self, args):
         if not self.loaded_module:

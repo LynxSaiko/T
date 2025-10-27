@@ -38,7 +38,7 @@ MODULE_INFO = {
     "type": "scanners",            # auxiliary / exploit / post / encoder / etc.
     "platform": "multi",            # linux / windows / multi / unix
     "authors": [
-        "GeneratedByChatGPT <chatgpt@example.com>"
+        "LynxSaiko"
     ],
     "license": "MIT",
     "rank": "normal",               # excellent / great / good / average / normal / manual / low / unknown

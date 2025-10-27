@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
 import requests
 import threading
@@ -31,14 +31,15 @@ except ImportError:
     RICH_AVAILABLE = False
 
 MODULE_INFO = {
-    "name": "vulnerability/web_scanner",
-    "description": "🔥 VULNERABILITY SCANNER - SQLi, XSS, LFI, RCE + Custom Wordlist"
+    "name": "Vulnerability Scanner",
+    "description": "[*] VULNERABILITY SCANNER - SQLi, XSS, LFI, RCE + Custom Wordlist",
+    "author": "Lynx Saiko"
 }
 
 OPTIONS = {
-    "TARGET": {
+    "URL": {
         "required": True,
-        "default": "http://localhost",
+        "default": "http://example.com",
         "description": "Target URL to scan"
     },
     "SCAN_TYPE": {
@@ -318,7 +319,7 @@ class VulnerabilityScanner:
         
         severity_colors = {
             'CRITICAL': 'red',
-            'HIGH': 'magenta',
+            'HIGH': 'green',
             'UNKNOWN': 'yellow'
         }
         
