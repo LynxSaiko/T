@@ -314,6 +314,27 @@ class NetworkScanner:
         except Exception:
             return False
 
+    def _extract_myrepublic_firmware(self, html_content, page_path):
+        """Extract firmware info khusus untuk router MyRepublic"""
+        firmware_patterns = [
+            r'firmware\s*version[^>]*>([^<]+)',
+            r'software\s*version[^>]*>([^<]+)',
+            r'fw_ver[^>]*>([^<]+)',
+            r'sw_ver[^>]*>([^<]+)',
+            r'<td[^>]*>firmware[^<]*</td>\s*<td[^>]*>([^<]+)',
+            r'<td[^>]*>software[^<]*</td>\s*<td[^>]*>([^<]+)',
+            r'<td[^>]*>version[^<]*</td>\s*<td[^>]*>([^<]+)',
+        ]
+        
+        for pattern in firmware_patterns:
+            matches = re.findall(pattern, html_content, re.IGNORECASE)
+            for match in matches:
+                if match and len(match.strip()) > 3:
+                    clean_match = re.sub(r'<[^>]+>', '', match).strip()
+                    if clean_match:
+                        return clean_match
+        return ""
+
     def get_service_fingerprint(self, ip, port):
         if port in {21, 22, 23, 25, 110, 143, 8291}:
             try:
@@ -346,19 +367,24 @@ class NetworkScanner:
             }
             headers = {'User-Agent': 'Mozilla/5.0 (compatible; RouterScanner/1.0)'}
             
-            paths = ["/", "/login", "/index.html", "/login.asp"]
-            for brand, data in self.ROUTER_BRANDS.items():
-                paths.extend(data.get("paths", []))
-            paths = list(set(paths))
+            # Prioritaskan path MyRepublic untuk firmware detection
+            myrepublic_paths = [
+                "/menu.html", "/login.html", "/gateway", "/html/index.html", 
+                "/html/menu.html", "/deviceinfo.html", "/status.html",
+                "/", "/login"
+            ]
             
             combined_body = ""
-            for path in paths:
+            firmware_found = ""
+            
+            for path in myrepublic_paths:
                 url = f"{scheme}://{ip}:{port}{path}"
                 try:
                     response = requests.get(url, timeout=self.timeout, verify=False, allow_redirects=True, headers=headers)
                     http_data['banner'] = (response.headers.get('Server') or "").strip()
                     http_data['auth_header'] = (response.headers.get('WWW-Authenticate') or "").strip()
                     http_data['status_code'] = response.status_code
+                    
                     if response.text:
                         match = re.search(r'<title\b[^>]*>(.*?)</title>', response.text[:8000], re.IGNORECASE | re.DOTALL)
                         if match:
@@ -366,40 +392,43 @@ class NetworkScanner:
                         body_sample = re.sub(r'\s+', ' ', response.text[:2000]).lower()
                         http_data['body_samples'].append(body_sample)
                         combined_body += body_sample + " "
+                        
+                        # Cari firmware khusus di MyRepublic pages
+                        if not firmware_found and any(x in path for x in ['menu.html', 'deviceinfo', 'status']):
+                            firmware_found = self._extract_myrepublic_firmware(response.text, path)
                     
-                    favicon_url = f"{scheme}://{ip}:{port}/favicon.ico"
-                    try:
-                        fav_resp = requests.get(favicon_url, timeout=1, verify=False, headers=headers)
-                        if fav_resp.status_code == 200:
-                            http_data['favicon_hash'] = hashlib.md5(fav_resp.content).hexdigest()
-                    except:
-                        pass
+                    # Favicon hash
+                    if not http_data['favicon_hash']:
+                        favicon_url = f"{scheme}://{ip}:{port}/favicon.ico"
+                        try:
+                            fav_resp = requests.get(favicon_url, timeout=1, verify=False, headers=headers)
+                            if fav_resp.status_code == 200:
+                                http_data['favicon_hash'] = hashlib.md5(fav_resp.content).hexdigest()
+                        except:
+                            pass
+                            
                 except requests.exceptions.RequestException:
-                    pass
+                    continue
             
-            search_text = " ".join([http_data.get('banner',''), http_data.get('title',''), combined_body]).strip()
-            firmware = ""
-            
-            # Cari firmware dari berbagai sumber
-            sources_to_check = [
-                http_data.get('banner', ''),
-                http_data.get('auth_header', ''),
-                search_text
-            ]
-            
-            for source in sources_to_check:
-                if firmware:
-                    break
-                for pat in self.FIRMWARE_PATTERNS:
-                    m = re.search(pat, source, re.IGNORECASE)
-                    if m:
-                        firmware = m.group(1) if m.groups() else m.group(0)
+            # Jika belum ketemu firmware, cari di combined body dengan patterns umum
+            if not firmware_found:
+                search_text = " ".join([http_data.get('banner',''), http_data.get('title',''), combined_body]).strip()
+                sources_to_check = [
+                    http_data.get('banner', ''),
+                    http_data.get('auth_header', ''),
+                    search_text
+                ]
+                
+                for source in sources_to_check:
+                    if firmware_found:
                         break
+                    for pat in self.FIRMWARE_PATTERNS:
+                        m = re.search(pat, source, re.IGNORECASE)
+                        if m:
+                            firmware_found = m.group(1) if m.groups() else m.group(0)
+                            break
             
-            if not firmware and re.search(r"rom-0|ROM-0", search_text):
-                firmware = "rom-0 (present)"
-
-            http_data['firmware'] = firmware
+            http_data['firmware'] = firmware_found
             return http_data
 
         return {"type": "Generic", "banner": "", "firmware": ""}
@@ -504,10 +533,14 @@ class NetworkScanner:
 
     def _get_hostname(self, ip):
         try:
-            return socket.gethostbyaddr(ip)[0]
+            hostname = socket.gethostbyaddr(ip)[0]
+            return hostname
         except:
-            return f"{ip}"
-
+            # Fallback yang lebih simple
+            if ip.endswith('.1'):
+               return "Router"
+        else:
+               return "Device"
     def _is_router_like(self, open_ports):
         port_numbers = {p['port'] for p in open_ports}
         router_ports = {23, 80, 443, 7547, 8080, 8291}
